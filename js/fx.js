@@ -8,15 +8,15 @@
 (function (global) {
   function captureFxText(byMe, type) {
     if (byMe && type === 'angel') {
-      return { icon: '😇', tone: 'good', title: '相手の天使を捕獲！', sub: '「天使4体捕獲」まで前進しました' };
+      return { icon: '😇', type: 'angel', tone: 'good', title: '相手の天使を捕獲！', sub: '「天使4体捕獲」まで前進しました' };
     }
     if (byMe && type === 'demon') {
-      return { icon: '😈', tone: 'bad', title: '相手の悪魔だった…', sub: '相手の「悪魔を取らせる」勝利条件が進んでしまいます' };
+      return { icon: '😈', type: 'demon', tone: 'bad', title: '相手の悪魔だった…', sub: '相手の「悪魔を取らせる」勝利条件が進んでしまいます' };
     }
     if (!byMe && type === 'angel') {
-      return { icon: '😇', tone: 'bad', title: 'あなたの天使が捕獲された', sub: '相手の勝利条件が進みました' };
+      return { icon: '😇', type: 'angel', tone: 'bad', title: 'あなたの天使が捕獲された', sub: '相手の勝利条件が進みました' };
     }
-    return { icon: '😈', tone: 'good', title: 'あなたの悪魔を取らせた！', sub: '「悪魔4体を取らせる」勝利が近づきました' };
+    return { icon: '😈', type: 'demon', tone: 'good', title: 'あなたの悪魔を取らせた！', sub: '「悪魔4体を取らせる」勝利が近づきました' };
   }
 
   let hideTimer = null;
@@ -24,8 +24,9 @@
   function showCaptureFx(doc, info, durationMs = 1700) {
     const el = doc.getElementById('capture-fx');
     if (!el) return;
+    const iconHtml = (global.ADIcons && info.type) ? global.ADIcons.iconImg(info.type, 'fx-img') : info.icon;
     el.innerHTML =
-      `<div class="fx-icon">${info.icon}</div>` +
+      `<div class="fx-icon">${iconHtml}</div>` +
       `<div class="fx-title">${info.title}</div>` +
       `<div class="fx-sub">${info.sub}</div>`;
     el.className = 'capture-fx show ' + info.tone;

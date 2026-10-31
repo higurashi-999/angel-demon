@@ -21,7 +21,7 @@ function makeWindow(url = 'https://example.test/', preset = null) {
   Object.defineProperty(window, 'crypto', { value: webcrypto });
   window.Peer = FakePeer;
   if (preset) preset(window);
-  for (const f of ['js/game.js', 'js/net.js', 'js/session.js', 'js/cpu.js', 'js/fx.js', 'js/app.js']) {
+  for (const f of ['js/game.js', 'js/icons.js', 'js/net.js', 'js/session.js', 'js/cpu.js', 'js/fx.js', 'js/app.js']) {
     window.eval(fs.readFileSync(path.join(ROOT, f), 'utf8'));
   }
   return dom;
@@ -137,9 +137,9 @@ test('CPU対戦: ランダム配置→確定で対戦が始まり、妖精8体�
   document.getElementById('btn-confirm').click();
   await sleep(900);
   assert.strictEqual(hidden(dom, 'placement-panel'), true);
-  const boardText = document.getElementById('board').textContent;
-  assert.strictEqual((boardText.match(/🧚/g) || []).length, 8);
-  assert.strictEqual((boardText.match(/😇|😈/g) || []).length, 8);
+  // 駒はキャラクター画像（alt=種類）で表示される
+  assert.strictEqual(document.querySelectorAll('#board img[alt="妖精"]').length, 8);
+  assert.strictEqual(document.querySelectorAll('#board img[alt="天使"], #board img[alt="悪魔"]').length, 8);
   assert.match(document.getElementById('turn-status').textContent, /手番です/);
   dom.window.close();
 });
@@ -152,7 +152,9 @@ test('捕獲演出: オーバーレイに天使/悪魔と良し悪しのトー�
   assert.match(fx.className, /show/);
   assert.match(fx.className, /bad/);
   assert.match(fx.textContent, /悪魔だった/);
-  assert.match(fx.textContent, /😈/);
+  const fxImg = fx.querySelector('img.fx-img');
+  assert.ok(fxImg, '演出にキャラクター画像が出る');
+  assert.strictEqual(fxImg.getAttribute('alt'), '悪魔');
   dom.window.close();
 });
 
@@ -177,6 +179,24 @@ test('勝敗じょうきょうパネル: 4項目が初期表示され、トグ�
   toggle.dispatchEvent(new dom.window.Event('change'));
   assert.strictEqual(document.getElementById('status-grid').classList.contains('hidden'), true);
   assert.strictEqual(document.getElementById('status-hidden-note').classList.contains('hidden'), false);
+  guest.destroy();
+  dom.window.close();
+});
+
+test('キャラクターアイコン: トレイと状況パネルに画像アイコンが使われる', async () => {
+  FakePeer.registry.clear();
+  const dom = makeWindow();
+  const { document } = dom.window;
+  const trayImg = document.querySelector('#tray-angel img.tray-icon');
+  assert.ok(trayImg, 'トレイにアイコン画像がある');
+  assert.ok(trayImg.src.startsWith('data:image/webp'), 'アイコン画像が読み込まれている');
+  document.getElementById('btn-create').click();
+  await sleep(30);
+  const code = dom.window.sessionStorage.getItem('adg-host-code');
+  const guest = new Net({ PeerCtor: FakePeer });
+  guest.join(code);
+  await sleep(80);
+  assert.ok(document.querySelector('#status-grid img.stat-icon'), '状況パネルにアイコン画像がある');
   guest.destroy();
   dom.window.close();
 });

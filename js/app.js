@@ -55,6 +55,7 @@ function probeRoute() {
   }, 1500);
 }
 const ICON = { angel: '😇', demon: '😈', fairy: '🧚' };
+const iconImg = (type, cls) => (window.ADIcons ? window.ADIcons.iconImg(type, cls) : ICON[type]);
 const TYPE_JA = { angel: '天使', demon: '悪魔' };
 const REASON_JA = {
   'capture-angels': '相手の天使を4体すべて捕獲',
@@ -427,7 +428,8 @@ function renderWinLosePanel() {
     const dots = '●'.repeat(it.count) + '○'.repeat(it.target - it.count);
     const remain = it.target - it.count;
     const tail = it.effect === 'win' ? `あと${remain}で勝ち✨` : `あと${remain}で負け💦`;
-    return `<div class="stat ${it.effect}"><div class="stat-label">${it.icon} ${it.label}</div>` +
+    const type = it.key.includes('angel') ? 'angel' : 'demon';
+    return `<div class="stat ${it.effect}"><div class="stat-label">${iconImg(type, 'stat-icon')} ${it.label}</div>` +
       `<div class="stat-dots">${dots}</div><div class="stat-tail">${it.count}/${it.target} ・ ${tail}</div></div>`;
   }).join('');
 }
@@ -450,7 +452,7 @@ function renderStatus() {
   if (state) {
     $('score').innerHTML = '';
     const cap = Object.entries(session.capturedInfo)
-      .map(([id, t]) => `<span title="${id}">${ICON[t]}</span>`).join('');
+      .map(([id, t]) => `<span title="${id}">${iconImg(t, 'cap-icon')}</span>`).join('');
     $('captured').innerHTML = cap ? `公開済み: ${cap}` : '';
   }
   const sel = state && selectedId ? G.getPiece(state, selectedId) : null;
@@ -479,7 +481,7 @@ function renderBoard() {
       if (phase === 'placement' || !state) {
         const t = setupGrid.get(x + ',' + y);
         if (t && G.isPlacementCell(me, x, y)) {
-          cell.innerHTML = `<span class="piece ${t}">${ICON[t]}<small>${TYPE_JA[t]}</small></span>`;
+          cell.innerHTML = `<span class="piece ${t}">${iconImg(t)}<small>${TYPE_JA[t]}</small></span>`;
         }
         if (G.isPlacementCell(me, x, y)) {
           cell.addEventListener('click', () => onPlacementCell(x, y));
@@ -489,12 +491,12 @@ function renderBoard() {
         if (p) {
           if (p.owner === me) {
             const t = session.ownTypes()[p.id];
-            cell.innerHTML = `<span class="piece ${t}">${ICON[t]}<small>${TYPE_JA[t]}</small></span>`;
+            cell.innerHTML = `<span class="piece ${t}">${iconImg(t)}<small>${TYPE_JA[t]}</small></span>`;
           } else if (mode === 'cpu' && cpuSession && phase === 'finished') {
             const t = cpuSession.ownTypes()[p.id];
-            cell.innerHTML = `<span class="piece ${t}">${ICON[t]}<small>${TYPE_JA[t]}</small></span>`;
+            cell.innerHTML = `<span class="piece ${t}">${iconImg(t)}<small>${TYPE_JA[t]}</small></span>`;
           } else {
-            cell.innerHTML = `<span class="piece fairy">${ICON.fairy}<small>妖精</small></span>`;
+            cell.innerHTML = `<span class="piece fairy">${iconImg('fairy')}<small>妖精</small></span>`;
           }
           if (p.id === selectedId) cell.classList.add('selected');
         }
@@ -563,5 +565,9 @@ $('btn-exit').addEventListener('click', () => {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
   applyStatusVisibility();
+  document.querySelectorAll('img[data-icon]').forEach((el) => {
+    const t = el.getAttribute('data-icon');
+    if (window.ADIcons && window.ADIcons.URIS[t]) { el.src = window.ADIcons.URIS[t]; el.alt = window.ADIcons.LABELS[t]; }
+  });
   renderBoard();
 })();

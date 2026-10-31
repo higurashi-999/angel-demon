@@ -1,12 +1,13 @@
 'use strict';
 /* 静的ファイルのキャッシュのみ。対戦データは一切キャッシュ・保存しない。
  * 取得はネットワーク優先（更新が即座に届くように）。オフライン時のみキャッシュへフォールバックする。 */
-const CACHE = 'angel-demon-v4';
+const CACHE = 'angel-demon-v5';
 const ASSETS = [
   './',
   './index.html',
   './css/style.css',
   './js/game.js',
+  './js/icons.js',
   './js/net.js',
   './js/session.js',
   './js/cpu.js',

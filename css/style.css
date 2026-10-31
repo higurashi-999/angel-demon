@@ -251,3 +251,20 @@ footer { text-align: center; color: var(--muted); font-size: .8rem; padding: 10p
   box-shadow: var(--shadow);
 }
 header h1 { line-height: 0; }
+
+/* キャラクターアイコン */
+.piece { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.piece-img {
+  width: 80%; max-width: 46px; aspect-ratio: 1; border-radius: 50%;
+  object-fit: cover; display: block;
+  box-shadow: 0 2px 6px rgba(150, 100, 180, .35);
+}
+.cap-icon { width: 26px; height: 26px; border-radius: 50%; vertical-align: middle; margin: 0 1px; }
+.stat-icon { width: 20px; height: 20px; border-radius: 50%; vertical-align: -4px; }
+.tray-icon { width: 30px; height: 30px; border-radius: 50%; vertical-align: middle; }
+.inline-icon { width: 1.15em; height: 1.15em; border-radius: 50%; vertical-align: -0.18em; }
+.fx-img {
+  width: 132px; height: 132px; border-radius: 50%; object-fit: cover;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
+  animation: fx-pop .45s cubic-bezier(.2, 1.6, .4, 1);
+}
