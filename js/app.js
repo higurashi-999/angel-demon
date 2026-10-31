@@ -180,6 +180,7 @@ function wireNet() {
   net.acceptPolicy = () => !(session && session.phase === 'playing');
   net.on('hostReady', () => { diag('ホスト登録OK（部屋ができました）'); waitingStatus('部屋ができました。相手の参加を待っています'); });
   net.on('status', (text) => {
+    diag(`状態: ${text}`);
     if (!$('waiting-room').classList.contains('hidden')) waitingStatus(text);
     else $('lobby-status').textContent = text;
   });
@@ -216,7 +217,8 @@ function wireNet() {
       }
     }
   });
-  net.on('peerLost', () => {
+  net.on('peerLost', (info) => {
+    diag(`切断を検知: ${(info && info.why) || ''}`);
     log('相手との接続が切れました');
     if (session && session.phase === 'playing') $('turn-status').textContent = '接続が切れました';
     else if (session && session.phase === 'placement') {

@@ -164,6 +164,7 @@
     _tryConnect() {
       if (this._destroyed || !this.peer || this.connOpen) return;
       this._joinAttempts++;
+      this._emit('status', `相手への接続を試みています…（${this._joinAttempts}回目）`);
       const c = this.peer.connect(peerIdFor(this.code), { reliable: true });
       this._wireConn(c);
       this._clearTimeout(this._connectTimer);
@@ -211,7 +212,24 @@
       // イベントは「現在の接続」からのものだけを扱う。差し替え済みの古い接続の
       // close/error が届いても、生きている接続を切断扱いにしない（実バグ修正）。
       const isCurrent = () => this.conn === c;
+      // ICE状態の監視。peerConnection は交渉開始後に現れることがあるため、
+      // 生成時と open 時の両方で取り付けを試みる（診断の取りこぼし防止）。
+      const attachIce = () => {
+        const pc = c.peerConnection;
+        if (!pc || typeof pc.addEventListener !== 'function' || c._iceWired) return;
+        c._iceWired = true;
+        pc.addEventListener('iceconnectionstatechange', () => {
+          if (!isCurrent()) return;
+          const s = pc.iceConnectionState;
+          this._emit('iceState', s);
+          if (s === 'disconnected') this._startGrace();
+          else if (s === 'failed' || s === 'closed') this._handleConnDown('ice-' + s);
+          else if (s === 'connected' || s === 'completed') this._clearGrace();
+        });
+      };
+      attachIce();
       c.on('open', () => {
+        attachIce();
         if (!isCurrent()) return;
         this.connOpen = true;
         this._clearTimeout(this._connectTimer);
@@ -221,17 +239,6 @@
       c.on('data', (d) => { if (isCurrent()) this._emit('data', d); });
       c.on('close', () => { if (isCurrent()) this._handleConnDown('close'); });
       c.on('error', () => { if (isCurrent()) this._handleConnDown('conn-error'); });
-      const pc = c.peerConnection;
-      if (pc && typeof pc.addEventListener === 'function') {
-        pc.addEventListener('iceconnectionstatechange', () => {
-          if (!isCurrent()) return;
-          const s = pc.iceConnectionState;
-          this._emit('iceState', s);
-          if (s === 'disconnected') this._startGrace();
-          else if (s === 'failed' || s === 'closed') this._handleConnDown('ice-' + s);
-          else if (s === 'connected' || s === 'completed') this._clearGrace();
-        });
-      }
     }
 
     _startGrace() {
