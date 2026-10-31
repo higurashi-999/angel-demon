@@ -79,17 +79,20 @@ const HOST_KEY = 'adg-host-code';
 
 /* ---------- 画面遷移 ---------- */
 function showLobby() {
+  document.body.classList.remove('in-game');
   $('lobby').classList.remove('hidden');
   $('waiting-room').classList.add('hidden');
   $('game').classList.add('hidden');
 }
 function showWaiting(code) {
+  document.body.classList.remove('in-game');
   $('lobby').classList.add('hidden');
   $('waiting-room').classList.remove('hidden');
   $('game').classList.add('hidden');
   $('wait-code').textContent = code.replace(/(.{4})/g, '$1 ').trim();
 }
 function showGame() {
+  document.body.classList.add('in-game');
   $('lobby').classList.add('hidden');
   $('waiting-room').classList.add('hidden');
   $('game').classList.remove('hidden');
@@ -430,7 +433,7 @@ function renderWinLosePanel() {
     const tail = it.effect === 'win' ? `あと${remain}で勝ち✨` : `あと${remain}で負け💦`;
     const type = it.key.includes('angel') ? 'angel' : 'demon';
     return `<div class="stat ${it.effect}"><div class="stat-label">${iconImg(type, 'stat-icon')} ${it.label}</div>` +
-      `<div class="stat-dots">${dots}</div><div class="stat-tail">${it.count}/${it.target} ・ ${tail}</div></div>`;
+      `<div class="stat-dots">${dots}</div><div class="stat-count">${it.count}/${it.target}</div><div class="stat-remain">${tail}</div></div>`;
   }).join('');
 }
 $('toggle-status').addEventListener('change', (e) => {

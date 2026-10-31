@@ -200,3 +200,12 @@ test('キャラクターアイコン: トレイと状況パネルに画像アイ
   guest.destroy();
   dom.window.close();
 });
+
+test('対戦画面ではキャラクター画像を隠す（body.in-game が付く）', async () => {
+  const dom = makeWindow();
+  const { document } = dom.window;
+  assert.strictEqual(document.body.classList.contains('in-game'), false);
+  document.getElementById('btn-cpu').click();
+  assert.strictEqual(document.body.classList.contains('in-game'), true, '対戦画面では in-game が付く');
+  dom.window.close();
+});

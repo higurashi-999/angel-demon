@@ -125,7 +125,7 @@ input[type="text"] {
 .status-toggle input { width: 18px; height: 18px; accent-color: #b18cff; }
 .status-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 8px;
 }
 .stat {
@@ -138,9 +138,10 @@ input[type="text"] {
 .stat .stat-dots { font-size: .95rem; letter-spacing: .18em; line-height: 1.5; }
 .stat.win .stat-dots { color: var(--good); }
 .stat.lose .stat-dots { color: var(--demon); }
-.stat .stat-tail { font-size: .82rem; font-weight: 700; }
-.stat.win .stat-tail { color: #2e9e52; }
-.stat.lose .stat-tail { color: #d94f7e; }
+.stat .stat-count { font-size: .9rem; font-weight: 700; }
+.stat .stat-remain { font-size: .82rem; font-weight: 700; }
+.stat.win .stat-remain { color: #2e9e52; }
+.stat.lose .stat-remain { color: #d94f7e; }
 .status-note { color: var(--muted); font-size: .85rem; margin: 4px 0; }
 
 .tray { display: flex; gap: 8px; margin: 10px 0; }
@@ -283,3 +284,6 @@ header h1 { line-height: 0; }
 /* 勝敗じょうきょう: ラベル／カウント／残り を縦に改行して表示 */
 .stat-main { flex-direction: column; align-items: flex-start; gap: 2px; }
 .stat-remain { margin-left: 0; }
+
+/* 対戦画面ではキャラクター画像（マスコット）を隠して盤面に集中 */
+body.in-game .mascot { display: none; }
