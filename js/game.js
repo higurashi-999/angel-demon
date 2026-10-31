@@ -168,6 +168,24 @@
     return state.winner;
   }
 
+  /*
+   * そのプレイヤーが把握してよい勝敗条件の進捗（すべて開示済みの公開情報のみ）。
+   * - 自分が捕獲した相手の駒の種類は、捕獲時に開示される
+   * - 相手に捕獲された自分の駒の種類も、捕獲時に開示される
+   * effect: 'win' はその条件が進むと自分の勝ちに近づく、'lose' は負けに近づく。
+   */
+  function summarizeFor(state, me) {
+    const opp = other(me);
+    const mine = state.capturedBy[me];
+    const theirs = state.capturedBy[opp];
+    return [
+      { key: 'take-angel', icon: '😇', label: '相手の天使を捕獲', count: mine.angel, target: 4, effect: 'win' },
+      { key: 'take-demon', icon: '😈', label: '相手の悪魔を捕獲', count: mine.demon, target: 4, effect: 'lose' },
+      { key: 'lost-angel', icon: '😇', label: '自分の天使が捕獲された', count: theirs.angel, target: 4, effect: 'lose' },
+      { key: 'lost-demon', icon: '😈', label: '自分の悪魔が捕獲された', count: theirs.demon, target: 4, effect: 'win' },
+    ];
+  }
+
   function endTurn(state) {
     if (!state.winner) state.turn = other(state.turn);
   }
@@ -181,7 +199,7 @@
     SIZE, TYPES, other, placementCells, isPlacementCell, targetExits, isOnTargetExit,
     pieceId, createGame, pieceAt, getPiece, validateTypes, validatePlacements,
     legalDestinations, validateMove, applyMove, recordCapture, recordExit, endTurn,
-    commitmentInput,
+    commitmentInput, summarizeFor,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   global.Geister = api;

@@ -402,7 +402,39 @@ $('btn-confirm').addEventListener('click', async () => {
 /* ---------- 描画 ---------- */
 function toAbs(vx, vy) { return me === 'A' ? { x: vx, y: vy } : { x: 5 - vx, y: 5 - vy }; }
 
-function render() { renderBoard(); renderStatus(); }
+function render() { renderBoard(); renderStatus(); renderWinLosePanel(); }
+
+/* 勝敗じょうきょうパネル（自分が把握してよい公開情報のみを表示。
+   トグルで非表示にすると、実物の対戦のように自分の頭で数えるモードになる） */
+const STATUS_VISIBLE_KEY = 'adg-status-visible';
+function statusVisible() {
+  try { return localStorage.getItem(STATUS_VISIBLE_KEY) !== '0'; } catch { return true; }
+}
+function applyStatusVisibility() {
+  const vis = statusVisible();
+  const toggle = $('toggle-status');
+  if (toggle) toggle.checked = vis;
+  $('status-grid').classList.toggle('hidden', !vis);
+  $('status-hidden-note').classList.toggle('hidden', vis);
+}
+function renderWinLosePanel() {
+  const grid = $('status-grid');
+  if (!grid || !window.Geister) return;
+  const st = session && session.state;
+  const zero = { capturedBy: { A: { angel: 0, demon: 0 }, B: { angel: 0, demon: 0 } } };
+  const items = G.summarizeFor(st || zero, me);
+  grid.innerHTML = items.map((it) => {
+    const dots = '●'.repeat(it.count) + '○'.repeat(it.target - it.count);
+    const remain = it.target - it.count;
+    const tail = it.effect === 'win' ? `あと${remain}で勝ち✨` : `あと${remain}で負け💦`;
+    return `<div class="stat ${it.effect}"><div class="stat-label">${it.icon} ${it.label}</div>` +
+      `<div class="stat-dots">${dots}</div><div class="stat-tail">${it.count}/${it.target} ・ ${tail}</div></div>`;
+  }).join('');
+}
+$('toggle-status').addEventListener('change', (e) => {
+  try { localStorage.setItem(STATUS_VISIBLE_KEY, e.target.checked ? '1' : '0'); } catch { /* noop */ }
+  applyStatusVisibility();
+});
 
 function renderStatus() {
   if (!session) return;
@@ -416,10 +448,7 @@ function renderStatus() {
     else { ts.textContent = '相手の手番です'; ts.className = 'turn-status'; }
   } else if (phase === 'finished') ts.textContent = '対戦終了';
   if (state) {
-    const mine = state.capturedBy[me], theirs = state.capturedBy[G.other(me)];
-    $('score').innerHTML =
-      `相手の天使を捕獲 ${mine.angel}/4（あと${4 - mine.angel}）<br>` +
-      `自分の悪魔を取らせた ${theirs.demon}/4（あと${4 - theirs.demon}）`;
+    $('score').innerHTML = '';
     const cap = Object.entries(session.capturedInfo)
       .map(([id, t]) => `<span title="${id}">${ICON[t]}</span>`).join('');
     $('captured').innerHTML = cap ? `公開済み: ${cap}` : '';
@@ -442,6 +471,7 @@ function renderBoard() {
       const { x, y } = toAbs(vx, vy);
       const cell = document.createElement('button');
       cell.className = 'cell';
+      if ((vx + vy) % 2 === 1) cell.classList.add('alt');
       cell.type = 'button';
       if (G.isPlacementCell(me, x, y)) cell.classList.add('my-zone');
       if (G.isOnTargetExit(me, x, y)) cell.classList.add('exit-target');
@@ -532,5 +562,6 @@ $('btn-exit').addEventListener('click', () => {
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
+  applyStatusVisibility();
   renderBoard();
 })();

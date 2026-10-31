@@ -155,3 +155,28 @@ test('捕獲演出: オーバーレイに天使/悪魔と良し悪しのトー�
   assert.match(fx.textContent, /😈/);
   dom.window.close();
 });
+
+test('勝敗じょうきょうパネル: 4項目が初期表示され、トグルで隠して保持される', async () => {
+  FakePeer.registry.clear();
+  const dom = makeWindow();
+  const { document } = dom.window;
+  document.getElementById('btn-create').click();
+  await sleep(30);
+  const code = dom.window.sessionStorage.getItem('adg-host-code');
+  const guest = new Net({ PeerCtor: FakePeer });
+  guest.join(code);
+  await sleep(80);
+  // 対戦画面でパネルが表示され、4項目すべて0から始まる
+  assert.strictEqual(document.getElementById('status-grid').children.length, 4);
+  assert.ok(document.getElementById('status-grid').textContent.includes('相手の天使を捕獲'));
+  assert.ok(document.getElementById('status-grid').textContent.includes('0/4'));
+  assert.strictEqual(document.getElementById('status-grid').classList.contains('hidden'), false);
+  // トグルを切るとグリッドが隠れて注記が出る
+  const toggle = document.getElementById('toggle-status');
+  toggle.checked = false;
+  toggle.dispatchEvent(new dom.window.Event('change'));
+  assert.strictEqual(document.getElementById('status-grid').classList.contains('hidden'), true);
+  assert.strictEqual(document.getElementById('status-hidden-note').classList.contains('hidden'), false);
+  guest.destroy();
+  dom.window.close();
+});

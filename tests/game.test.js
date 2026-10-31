@@ -168,3 +168,25 @@ test('捕獲の適用: 取った駒は無効化され、移動側がそのマス
   assert.strictEqual(b4.alive, false);
   assert.strictEqual(G.pieceAt(s, 1, 1).id, 'A0');
 });
+
+test('summarizeFor: 自分視点の勝敗進捗（公開情報のみ）を返す', () => {
+  const s = freshGame('A');
+  s.capturedBy.A.angel = 3;
+  s.capturedBy.A.demon = 1;
+  s.capturedBy.B.angel = 2;
+  s.capturedBy.B.demon = 4;
+  const forA = G.summarizeFor(s, 'A');
+  const byKey = Object.fromEntries(forA.map((i) => [i.key, i]));
+  assert.strictEqual(byKey['take-angel'].count, 3);
+  assert.strictEqual(byKey['take-angel'].effect, 'win');
+  assert.strictEqual(byKey['take-demon'].count, 1);
+  assert.strictEqual(byKey['take-demon'].effect, 'lose');
+  assert.strictEqual(byKey['lost-angel'].count, 2);
+  assert.strictEqual(byKey['lost-angel'].effect, 'lose');
+  assert.strictEqual(byKey['lost-demon'].count, 4);
+  assert.strictEqual(byKey['lost-demon'].effect, 'win');
+  // 相手視点では攻守が入れ替わる
+  const forB = Object.fromEntries(G.summarizeFor(s, 'B').map((i) => [i.key, i]));
+  assert.strictEqual(forB['take-angel'].count, 2);
+  assert.strictEqual(forB['lost-demon'].count, 1);
+});
