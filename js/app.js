@@ -24,6 +24,11 @@ function log(msg) {
   ul.prepend(li);
   while (ul.children.length > 30) ul.lastChild.remove();
 }
+/* 例外や未処理の失敗も診断に残す（無言で止まるのを防ぐ） */
+window.addEventListener('error', (e) => { try { diag(`例外: ${e.message || e.type}`); } catch { /* noop */ } });
+window.addEventListener('unhandledrejection', (e) => {
+  try { diag(`未処理の失敗: ${(e.reason && e.reason.message) || e.reason || ''}`); } catch { /* noop */ }
+});
 /* 接続診断ログ（繋がらない原因の切り分け用に画面下へ残す） */
 function diag(msg) {
   const el = $('diag-log');
@@ -238,7 +243,7 @@ function startHosting(code) {
   net = new window.ADNet.Net();
   wireNet();
   diag(`ホスト開始 code=${code}`);
-  net.host(code);
+  net.host(code).catch((e) => diag(`ホスト処理で例外: ${(e && e.message) || e}`));
 }
 
 function joinRoom(rawCode) {
@@ -251,7 +256,9 @@ function joinRoom(rawCode) {
   net = new window.ADNet.Net();
   wireNet();
   diag(`参加開始 code=${code}（入力 ${String(rawCode).length} 文字 → 正規化 ${code.length} 文字）`);
-  net.join(code);
+  net.join(code)
+    .then(() => diag('参加処理: 接続の準備ができました'))
+    .catch((e) => diag(`参加処理で例外: ${(e && e.message) || e}`));
 }
 
 $('btn-create').addEventListener('click', () => startHosting(genRoomCode()));

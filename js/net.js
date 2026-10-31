@@ -90,12 +90,16 @@
     on(name, fn) { this.handlers[name] = fn; }
     _emit(name, arg) { const h = this.handlers[name]; if (h) h(arg); }
 
-    /* 静的認証TURNのクレデンシャルを付けた ICE サーバー一覧を作る */
+    /* 静的認証TURNのクレデンシャルを付けた ICE サーバー一覧を作る。
+       クレデンシャル生成が端末側で滞ると参加処理全体が止まるため、1.5秒で見切る */
     async _buildPeerOpts() {
       const servers = [...this.iceServers];
       try {
-        const creds = await staticAuthCredentials(STATIC_AUTH_SECRET);
-        servers.push({ ...STATIC_AUTH_SERVER, ...creds });
+        const creds = await Promise.race([
+          staticAuthCredentials(STATIC_AUTH_SECRET),
+          new Promise((res) => this._setTimeout(() => res(null), 1500)),
+        ]);
+        if (creds) servers.push({ ...STATIC_AUTH_SERVER, ...creds });
       } catch { /* 生成できない環境では静的認証サーバーなしで続行 */ }
       return { debug: 0, config: { iceServers: servers } };
     }
