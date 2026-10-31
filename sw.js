@@ -1,6 +1,7 @@
 'use strict';
-/* 静的ファイルのキャッシュのみ。対戦データは一切キャッシュ・保存しない。 */
-const CACHE = 'angel-demon-v2';
+/* 静的ファイルのキャッシュのみ。対戦データは一切キャッシュ・保存しない。
+ * 取得はネットワーク優先（更新が即座に届くように）。オフライン時のみキャッシュへフォールバックする。 */
+const CACHE = 'angel-demon-v3';
 const ASSETS = [
   './',
   './index.html',
@@ -27,5 +28,13 @@ self.addEventListener('activate', (e) => {
 });
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET' || new URL(e.request.url).origin !== self.location.origin) return;
-  e.respondWith(caches.match(e.request).then((hit) => hit || fetch(e.request)));
+  e.respondWith(
+    fetch(e.request)
+      .then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE).then((c) => c.put(e.request, copy));
+        return res;
+      })
+      .catch(() => caches.match(e.request))
+  );
 });
