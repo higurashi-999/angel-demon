@@ -71,8 +71,14 @@
       this.disconnectGraceMs = opts.disconnectGraceMs != null ? opts.disconnectGraceMs : 6000;
       this.maxJoinRetries = opts.maxJoinRetries != null ? opts.maxJoinRetries : 3;
       this.retryDelayMs = opts.retryDelayMs != null ? opts.retryDelayMs : 3000;
-      this._setTimeout = opts.setTimeoutFn || setTimeout;
-      this._clearTimeout = opts.clearTimeoutFn || clearTimeout;
+      // タイマーは必ず「素の関数呼び出し」で使うこと。setTimeout/clearTimeout の
+      // 参照を this のプロパティとして呼び出すと、Safari(WebKit) が
+      // "Can only call Window.setTimeout on instances of Window" で例外を投げ、
+      // 接続確立直後の処理が止まって対戦が始まらなくなる（実機で確認した不具合）。
+      const rawSetTimeout = opts.setTimeoutFn || setTimeout;
+      const rawClearTimeout = opts.clearTimeoutFn || clearTimeout;
+      this._setTimeout = (fn, ms) => rawSetTimeout(fn, ms);
+      this._clearTimeout = (id) => rawClearTimeout(id);
       this.handlers = {};
       /* 対戦進行中に新しい接続を受け入れるか(app側が設定)。null なら常に受け入れる */
       this.acceptPolicy = null;

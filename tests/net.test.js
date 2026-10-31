@@ -153,6 +153,38 @@ test('normalizeCode: 全角入力・空白・小文字を正規化する', () =>
   assert.strictEqual(normalizeCode(null), '');
 });
 
+test('Safari方式の厳密タイマーでも接続が成立する（this束縛で例外になる回帰防止）', async () => {
+  // Safari(WebKit) の setTimeout/clearTimeout は、Window 以外を this にして呼ぶと例外を投げる。
+  // それを再現する厳密タイマーを注入し、Net がメソッド呼び出しでタイマーを使わないことを保証する。
+  function strictSetTimeout(fn, ms) {
+    if (this !== undefined) throw new TypeError('Can only call Window.setTimeout on instances of Window');
+    return setTimeout(fn, ms);
+  }
+  function strictClearTimeout(id) {
+    if (this !== undefined) throw new TypeError('Can only call Window.clearTimeout on instances of Window');
+    return clearTimeout(id);
+  }
+  FakePeer.registry.clear();
+  const opts = { PeerCtor: FakePeer, setTimeoutFn: strictSetTimeout, clearTimeoutFn: strictClearTimeout };
+  const host = new Net(opts);
+  const guest = new Net(opts);
+  let hostOpened = false;
+  let guestOpened = false;
+  host.on('open', () => { hostOpened = true; });
+  guest.on('open', () => { guestOpened = true; });
+  host.host(CODE);
+  await tick();
+  guest.join(CODE);
+  assert.strictEqual(await until(() => hostOpened && guestOpened), true, 'open イベントが両側で発火する');
+  // データ往復（open ハンドラ内のタイマー操作含む）も例外なく動く
+  const got = [];
+  host.on('data', (d) => got.push(d));
+  guest.send({ t: 'safari-strict' });
+  await tick(20);
+  assert.deepStrictEqual(got, [{ t: 'safari-strict' }]);
+  host.destroy(); guest.destroy();
+});
+
 test('中継サーバーに接続できない場合はウォッチドッグがエラーを出す', async () => {
   class NeverOpenPeer {
     constructor() { this._h = {}; }
