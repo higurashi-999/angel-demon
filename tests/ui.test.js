@@ -81,6 +81,21 @@ test('ホスト: 再読み込み（タブ復元）でも同じコードで待機
   dom.window.close();
 });
 
+test('ホスト: 「部屋を閉じる」で待機が解除されロビーに戻る', async () => {
+  FakePeer.registry.clear();
+  const dom = makeWindow();
+  const { document } = dom.window;
+  document.getElementById('btn-create').click();
+  await sleep(30);
+  assert.strictEqual(hidden(dom, 'waiting-room'), false);
+  document.getElementById('btn-cancel-room').click();
+  await sleep(10);
+  assert.strictEqual(hidden(dom, 'waiting-room'), true);
+  assert.strictEqual(hidden(dom, 'lobby'), false);
+  assert.strictEqual(dom.window.sessionStorage.getItem('adg-host-code'), null);
+  dom.window.close();
+});
+
 test('招待リンク（?room=）を開くと自動で参加し対戦画面へ進む', async () => {
   FakePeer.registry.clear();
   const CODE = 'WXYZ2345ABCD6789';
