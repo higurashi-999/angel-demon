@@ -23,7 +23,7 @@
 | 構成要素 | 役割 | 費用 |
 |---|---|---|
 | GitHub Pages | HTML/CSS/JS の静的配信（公開リポジトリで無料、月100GBまでソフト制限） | ¥0 |
-| GitHub リポジトリ | ソースコード管理（公開、Actions による自動デプロイ） | ¥0 |
+| GitHub リポジトリ | ソースコード管理（公開）。GitHub Pages はブランチ配信（ビルド不要の静的サイトのため） | ¥0 |
 | PeerServer Cloud | WebRTC のシグナリング（接続仲介）のみ。ゲームデータは経由しない。同時接続50まで無料枠 | ¥0 |
 | WebRTC P2P | 対戦データの直接通信。DTLS で暗号化 | ¥0 |
 | Google Public STUN | NAT 越え支援 | ¥0 |
