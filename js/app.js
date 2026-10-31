@@ -417,6 +417,7 @@ $('btn-rematch').addEventListener('click', () => {
 });
 $('btn-leave').addEventListener('click', () => {
   sessionStorage.removeItem(HOST_KEY);
+  if (net) net.destroy(); // 中継サーバー側の接続を即座に解放してから戻る
   location.href = location.pathname;
 });
 $('btn-resign').addEventListener('click', () => {
