@@ -214,10 +214,16 @@ function joinRoom(rawCode) {
 $('btn-create').addEventListener('click', () => startHosting(genRoomCode()));
 $('btn-join').addEventListener('click', () => joinRoom($('join-code').value));
 $('btn-cancel-room').addEventListener('click', () => {
+  // 画面切替を最優先し、接続の破棄は後から確実に行う
+  // （実ブラウザで destroy 中の同期的処理が画面切替を妨げる事象への対策）
   sessionStorage.removeItem(HOST_KEY);
-  if (net) net.destroy();
   showLobby();
   $('lobby-status').textContent = '';
+  const n = net;
+  net = null;
+  session = null;
+  setTimeout(() => { try { if (n) n.destroy(); } catch { /* noop */ } }, 0);
+  setTimeout(showLobby, 60); // 念のため切替を再適用する
 });
 $('btn-copy2').addEventListener('click', async () => {
   const code = sessionStorage.getItem(HOST_KEY);
@@ -417,7 +423,7 @@ $('btn-rematch').addEventListener('click', () => {
 });
 $('btn-leave').addEventListener('click', () => {
   sessionStorage.removeItem(HOST_KEY);
-  if (net) net.destroy(); // 中継サーバー側の接続を即座に解放してから戻る
+  try { if (net) net.destroy(); } catch { /* noop */ } // 中継サーバー側の接続を即座に解放してから戻る
   location.href = location.pathname;
 });
 $('btn-resign').addEventListener('click', () => {

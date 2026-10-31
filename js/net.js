@@ -179,14 +179,18 @@
     get isOpen() { return this.connOpen; }
 
     destroy() {
-      this._destroyed = true;
-      this._clearGrace();
-      this._clearTimeout(this._connectTimer);
-      try { if (this.conn) this.conn.close(); } catch { /* noop */ }
-      try { if (this.peer) this.peer.destroy(); } catch { /* noop */ }
-      this.conn = null;
-      this.peer = null;
-      this.connOpen = false;
+      // 破棄処理中の例外が呼び出し側（画面切替など）を止めないよう全体を囲む
+      try {
+        this._destroyed = true;
+        this._clearGrace();
+        this._clearTimeout(this._connectTimer);
+        try { if (this.conn) this.conn.close(); } catch { /* noop */ }
+        try { if (this.peer) this.peer.destroy(); } catch { /* noop */ }
+      } catch { /* noop */ } finally {
+        this.conn = null;
+        this.peer = null;
+        this.connOpen = false;
+      }
     }
   }
 
