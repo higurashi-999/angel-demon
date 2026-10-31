@@ -40,12 +40,13 @@
   <!-- ホスト待機ルーム -->
   <section id="waiting-room" class="card hidden">
     <h2>対戦ルーム（あなたがホスト）</h2>
-    <p>あなたはこの部屋に入室済みです。このコードを相手に伝えてください</p>
+    <p>あなたはこの部屋に入室済みです。この部屋コードを相手に伝えてください</p>
     <div class="room-code" id="wait-code">----</div>
-    <button id="btn-copy2" class="primary wide">招待リンクをコピー</button>
+    <button id="btn-copy2" class="primary wide">部屋コードをコピー</button>
+    <button id="btn-copy-link" class="sub wide">招待リンクもコピーする</button>
     <button id="btn-cancel-room" class="sub wide">部屋を閉じる</button>
     <p class="status" id="waiting-status">部屋を作成しています…</p>
-    <p class="note">相手が参加すると自動で対戦画面に進みます。リンクを送るために他のアプリへ切り替えても、このタブに戻れば待機が自動で復旧します。</p>
+    <p class="note">相手はトップ画面の「相手の部屋コード」にこのコードを入力して「参加する」を押します。相手が参加すると自動で対戦画面に進みます。コードを伝えるために他のアプリへ切り替えても、このタブに戻れば待機が自動で復旧します。</p>
   </section>
 
   <!-- 捕獲時の演出 -->
@@ -73,6 +74,7 @@
         <button id="btn-confirm" class="primary" disabled>配置を確定</button>
       </div>
       <p id="placement-status" class="status"></p>
+      <button id="btn-quit-game" class="sub wide">対戦をやめてロビーに戻る</button>
     </div>
 
     <div id="board-wrap">
@@ -122,7 +124,7 @@
 </main>
 
 <footer>
-  <p class="build">build 2026-10-31.6</p>
+  <p class="build">build 2026-10-31.7</p>
   <p>天使と悪魔 — Alex Randolph 作『Geister（ガイスター）』（Drei Magier Spiele）に着想を得た非公式ファンメイド作品です。原作の権利者とは無関係であり、公式製品ではありません。ルール本文・デザイン・プログラムはすべて本作品のオリジナルです。</p>
 </footer>
 

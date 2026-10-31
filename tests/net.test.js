@@ -1,10 +1,20 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert');
+const crypto = require('node:crypto');
 const { Net, normalizeCode } = require('../js/net.js');
 const { FakePeer } = require('./helpers/fakepeer.js');
 
 const tick = (ms = 10) => new Promise((r) => setTimeout(r, ms));
+/* 条件が満たされるまでポーリングする（Peer生成が非同期化されたため固定待ちは不安定） */
+async function until(fn, timeoutMs = 3000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (fn()) return true;
+    await tick(10);
+  }
+  return fn();
+}
 const CODE = 'ABCD2345EFGH6789';
 
 function makeNet(extra = {}) {
@@ -34,9 +44,7 @@ test('ホストとゲストが接続し、双方向にデータを送れる', as
   host.host(CODE);
   await tick();
   guest.join(CODE);
-  await tick(30);
-  assert.strictEqual(host.isOpen, true);
-  assert.strictEqual(guest.isOpen, true);
+  assert.strictEqual(await until(() => host.isOpen && guest.isOpen), true);
   guest.send({ t: 'hello-guest' });
   host.send({ t: 'hello-host' });
   await tick(20);
@@ -68,8 +76,7 @@ test('対戦中は2人目の参加を断り、切断後の再接続は受け入�
   await tick();
   const g1 = makeNet();
   g1.join(CODE);
-  await tick(30);
-  assert.strictEqual(host.isOpen, true);
+  assert.strictEqual(await until(() => host.isOpen), true);
   const g2 = makeNet();
   g2.join(CODE);
   await tick(30);
@@ -84,9 +91,7 @@ test('対戦中は2人目の参加を断り、切断後の再接続は受け入�
   host.acceptPolicy = () => true;
   const g3 = makeNet();
   g3.join(CODE);
-  await tick(30);
-  assert.strictEqual(host.isOpen, true);
-  assert.strictEqual(g3.isOpen, true);
+  assert.strictEqual(await until(() => host.isOpen && g3.isOpen), true);
   host.destroy(); g1.destroy(); g2.destroy(); g3.destroy();
 });
 
@@ -99,7 +104,7 @@ test('ICEの一時的な disconnected は猶予内に回復すれば切断扱い
   host.host(CODE);
   await tick();
   guest.join(CODE);
-  await tick(30);
+  assert.strictEqual(await until(() => host.isOpen), true);
   const pc = host.conn.peerConnection;
   pc.setIce('disconnected');
   await tick(20);
@@ -113,6 +118,41 @@ test('ICEの一時的な disconnected は猶予内に回復すれば切断扱い
   assert.strictEqual(lost, 1);
   assert.strictEqual(host.isOpen, false);
   host.destroy(); guest.destroy();
+});
+
+test('接続の差し替え: 古い接続の close で切断扱いにならない', async () => {
+  FakePeer.registry.clear();
+  const host = makeNet();
+  host.acceptPolicy = () => true; // 配置中などは再接続を受け入れる
+  let lost = 0;
+  const got = [];
+  host.on('peerLost', () => { lost++; });
+  host.on('data', (d) => got.push(d));
+  host.host(CODE);
+  await tick();
+  const g1 = makeNet();
+  g1.join(CODE);
+  assert.strictEqual(await until(() => host.isOpen), true);
+  // ゲストが入り直す（2つ目の接続が来て差し替わる）
+  const g2 = makeNet();
+  g2.join(CODE);
+  await tick(60);
+  assert.strictEqual(host.isOpen, true);
+  assert.strictEqual(lost, 0, '差し替え時の古い接続の close で peerLost が出ない');
+  // 新しい接続でデータが届く
+  g2.send({ t: 'via-new-conn' });
+  await tick(20);
+  assert.deepStrictEqual(got, [{ t: 'via-new-conn' }]);
+  host.destroy(); g1.destroy(); g2.destroy();
+});
+
+test('静的認証TURNクレデンシャル: 有効期限つきユーザー名とHMAC署名を生成する', async () => {
+  const { staticAuthCredentials } = require('../js/net.js');
+  const creds = await staticAuthCredentials('openrelayprojectsecret', 3600);
+  const expectUser = Math.floor(Date.now() / 1000) + 3600;
+  assert.ok(Math.abs(Number(creds.username) - expectUser) <= 2);
+  const expectSig = crypto.createHmac('sha1', 'openrelayprojectsecret').update(creds.username).digest('base64');
+  assert.strictEqual(creds.credential, expectSig);
 });
 
 test('同じコードでの二重ホストは unavailable-id エラーになる', async () => {

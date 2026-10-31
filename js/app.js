@@ -179,10 +179,20 @@ function wireNet() {
     render();
   });
   net.on('data', (d) => { if (session) session.onMessage(d); });
+  net.on('iceState', (s) => {
+    if (s === 'failed') {
+      log('接続を確立できませんでした（回線同士の相性）');
+      if (!$('waiting-room').classList.contains('hidden')) {
+        waitingStatus('接続が切れました。電波の良い場所で、部屋を作り直してみてください');
+      }
+    }
+  });
   net.on('peerLost', () => {
     log('相手との接続が切れました');
     if (session && session.phase === 'playing') $('turn-status').textContent = '接続が切れました';
-    else if (!$('waiting-room').classList.contains('hidden')) {
+    else if (session && session.phase === 'placement') {
+      $('turn-status').textContent = '接続が切れました。相手の再接続を待っています…';
+    } else if (!$('waiting-room').classList.contains('hidden')) {
       waitingStatus('接続が切れました。相手が再接続するのを待っています…');
     }
   });
@@ -228,13 +238,41 @@ $('btn-cancel-room').addEventListener('click', () => {
 $('btn-copy2').addEventListener('click', async () => {
   const code = sessionStorage.getItem(HOST_KEY);
   if (!code) return;
+  try {
+    await navigator.clipboard.writeText(code);
+    waitingStatus('部屋コードをコピーしました。相手に伝えてください');
+  } catch {
+    waitingStatus('コピーできませんでした。上のコードを直接伝えてください');
+  }
+});
+$('btn-copy-link').addEventListener('click', async () => {
+  const code = sessionStorage.getItem(HOST_KEY);
+  if (!code) return;
   const url = `${location.origin}${location.pathname}?room=${code}`;
   try {
     await navigator.clipboard.writeText(url);
-    waitingStatus('招待リンクをコピーしました。相手に送ってください');
+    waitingStatus('招待リンクをコピーしました。相手が開くとそのまま参加できます');
   } catch {
     waitingStatus('コピーできませんでした。部屋コードを直接伝えてください');
   }
+});
+
+/* 対戦をやめてロビーに戻る（配置画面から） */
+$('btn-quit-game').addEventListener('click', () => {
+  sessionStorage.removeItem(HOST_KEY);
+  const n = net;
+  net = null;
+  session = null;
+  cpuSession = null;
+  mode = null;
+  showLobby();
+  $('lobby-status').textContent = '';
+  setTimeout(() => { try { if (n) n.destroy(); } catch { /* noop */ } }, 0);
+});
+
+/* 他のアプリから戻ってきたとき、シグナリングが切れていたら繋ぎ直す */
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && net) net.ensureSignaling();
 });
 
 /* ---------- CPU練習モード ---------- */

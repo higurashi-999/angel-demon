@@ -57,7 +57,23 @@ test('ホスト: 部屋を作ると待機ルームへ遷移し、ゲスト接続
   assert.strictEqual(hidden(dom, 'game'), false);
   assert.strictEqual(hidden(dom, 'waiting-room'), true);
   assert.strictEqual(hidden(dom, 'placement-panel'), false);
+  // 配置画面からロビーへ戻れる
+  document.getElementById('btn-quit-game').click();
+  await sleep(10);
+  assert.strictEqual(hidden(dom, 'lobby'), false);
+  assert.strictEqual(hidden(dom, 'game'), true);
   guest.destroy();
+  dom.window.close();
+});
+
+test('ホスト: 待機ルームのコピーは部屋コードが主役', async () => {
+  FakePeer.registry.clear();
+  const dom = makeWindow();
+  const { document } = dom.window;
+  document.getElementById('btn-create').click();
+  await sleep(30);
+  assert.strictEqual(document.getElementById('btn-copy2').textContent, '部屋コードをコピー');
+  assert.ok(document.getElementById('btn-copy-link'), '招待リンクのコピーも残っている');
   dom.window.close();
 });
 

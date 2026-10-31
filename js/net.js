@@ -12,10 +12,47 @@
   const ICE_SERVERS = [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-    { urls: 'turns:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'stun:stun.cloudflare.com:3478' },
+    {
+      urls: [
+        'turn:openrelay.metered.ca:80',
+        'turn:openrelay.metered.ca:80?transport=tcp',
+        'turn:openrelay.metered.ca:443',
+        'turn:openrelay.metered.ca:443?transport=tcp',
+        'turns:openrelay.metered.ca:443?transport=tcp',
+      ],
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
   ];
+
+  /*
+   * 静的認証方式の TURN（staticauth.openrelay.metered.ca）向けに、
+   * 有効期限つきクレデンシャルを端末内で生成する（coturn 標準方式）。
+   * username = 失効時刻(UNIX秒)、credential = Base64(HMAC-SHA1(secret, username))
+   */
+  async function staticAuthCredentials(secret, ttlSec = 3600, subtle = null) {
+    const cryptoObj = subtle || (typeof crypto !== 'undefined' ? crypto.subtle : null);
+    if (!cryptoObj) throw new Error('WebCrypto が使えません');
+    const username = String(Math.floor(Date.now() / 1000) + ttlSec);
+    const key = await cryptoObj.importKey(
+      'raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']
+    );
+    const sig = await cryptoObj.sign('HMAC', key, new TextEncoder().encode(username));
+    const credential = btoa(String.fromCharCode(...new Uint8Array(sig)));
+    return { username, credential };
+  }
+
+  const STATIC_AUTH_SECRET = 'openrelayprojectsecret';
+  const STATIC_AUTH_SERVER = {
+    urls: [
+      'turn:staticauth.openrelay.metered.ca:80',
+      'turn:staticauth.openrelay.metered.ca:80?transport=tcp',
+      'turn:staticauth.openrelay.metered.ca:443',
+      'turn:staticauth.openrelay.metered.ca:443?transport=tcp',
+      'turns:staticauth.openrelay.metered.ca:443?transport=tcp',
+    ],
+  };
 
   function peerIdFor(code) { return 'ad-geister-' + String(code).toLowerCase(); }
   function normalizeCode(raw) { return (raw || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
@@ -47,14 +84,25 @@
 
     on(name, fn) { this.handlers[name] = fn; }
     _emit(name, arg) { const h = this.handlers[name]; if (h) h(arg); }
-    _peerOpts() { return { debug: 0, config: { iceServers: this.iceServers } }; }
+
+    /* 静的認証TURNのクレデンシャルを付けた ICE サーバー一覧を作る */
+    async _buildPeerOpts() {
+      const servers = [...this.iceServers];
+      try {
+        const creds = await staticAuthCredentials(STATIC_AUTH_SECRET);
+        servers.push({ ...STATIC_AUTH_SERVER, ...creds });
+      } catch { /* 生成できない環境では静的認証サーバーなしで続行 */ }
+      return { debug: 0, config: { iceServers: servers } };
+    }
 
     /* ---------- ホスト ---------- */
-    host(code) {
+    async host(code) {
       this.role = 'host';
       this.code = code;
       this._destroyed = false;
-      const peer = (this.peer = new this.PeerCtor(peerIdFor(code), this._peerOpts()));
+      const opts = await this._buildPeerOpts();
+      if (this._destroyed) return;
+      const peer = (this.peer = new this.PeerCtor(peerIdFor(code), opts));
       peer.on('open', () => this._emit('hostReady', code));
       peer.on('connection', (c) => this._accept(c));
       peer.on('disconnected', () => this._reconnectSignaling());
@@ -73,15 +121,23 @@
     }
 
     /* ---------- ゲスト ---------- */
-    join(code) {
+    async join(code) {
       this.role = 'guest';
       this.code = code;
       this._destroyed = false;
       this._joinAttempts = 0;
-      const peer = (this.peer = new this.PeerCtor(undefined, this._peerOpts()));
+      const opts = await this._buildPeerOpts();
+      if (this._destroyed) return;
+      const peer = (this.peer = new this.PeerCtor(undefined, opts));
       peer.on('open', () => this._tryConnect());
       peer.on('disconnected', () => this._reconnectSignaling());
       peer.on('error', (e) => this._onPeerError(e));
+    }
+
+    /* 画面復帰時などに、シグナリングが切れていたら繋ぎ直す */
+    ensureSignaling() {
+      if (this._destroyed || !this.peer) return;
+      if (this.peer.disconnected) this._reconnectSignaling();
     }
 
     _tryConnect() {
@@ -131,19 +187,25 @@
 
     _wireConn(c) {
       this.conn = c;
+      // イベントは「現在の接続」からのものだけを扱う。差し替え済みの古い接続の
+      // close/error が届いても、生きている接続を切断扱いにしない（実バグ修正）。
+      const isCurrent = () => this.conn === c;
       c.on('open', () => {
+        if (!isCurrent()) return;
         this.connOpen = true;
         this._clearTimeout(this._connectTimer);
         this._clearGrace();
         this._emit('open');
       });
-      c.on('data', (d) => this._emit('data', d));
-      c.on('close', () => this._handleConnDown('close'));
-      c.on('error', () => this._handleConnDown('conn-error'));
+      c.on('data', (d) => { if (isCurrent()) this._emit('data', d); });
+      c.on('close', () => { if (isCurrent()) this._handleConnDown('close'); });
+      c.on('error', () => { if (isCurrent()) this._handleConnDown('conn-error'); });
       const pc = c.peerConnection;
       if (pc && typeof pc.addEventListener === 'function') {
         pc.addEventListener('iceconnectionstatechange', () => {
+          if (!isCurrent()) return;
           const s = pc.iceConnectionState;
+          this._emit('iceState', s);
           if (s === 'disconnected') this._startGrace();
           else if (s === 'failed' || s === 'closed') this._handleConnDown('ice-' + s);
           else if (s === 'connected' || s === 'completed') this._clearGrace();
@@ -194,7 +256,7 @@
     }
   }
 
-  const api = { Net, ICE_SERVERS, peerIdFor, normalizeCode };
+  const api = { Net, ICE_SERVERS, peerIdFor, normalizeCode, staticAuthCredentials };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   global.ADNet = api;
 })(typeof window !== 'undefined' ? window : globalThis);
