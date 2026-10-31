@@ -146,6 +146,29 @@ test('接続の差し替え: 古い接続の close で切断扱いにならな�
   host.destroy(); g1.destroy(); g2.destroy();
 });
 
+test('normalizeCode: 全角入力・空白・小文字を正規化する', () => {
+  assert.strictEqual(normalizeCode('abcd efgh-jklm npqr'), 'ABCDEFGHJKLMNPQR');
+  assert.strictEqual(normalizeCode('ＡＢＣＤＥＦＧＨＪＫＭＮＰＱＲＴ'), 'ABCDEFGHJKMNPQRT');
+  assert.strictEqual(normalizeCode(''), '');
+  assert.strictEqual(normalizeCode(null), '');
+});
+
+test('中継サーバーに接続できない場合はウォッチドッグがエラーを出す', async () => {
+  class NeverOpenPeer {
+    constructor() { this._h = {}; }
+    on(n, f) { this._h[n] = f; }
+    emit() { /* 何も起きない */ }
+    connect() { throw new Error('open前は接続しない'); }
+    destroy() {}
+    reconnect() {}
+  }
+  const n = new Net({ PeerCtor: NeverOpenPeer, peerOpenTimeoutMs: 60 });
+  const errP = new Promise((res) => n.on('error', res));
+  n.join(CODE);
+  const err = await errP;
+  assert.strictEqual(err.type, 'signaling-timeout');
+});
+
 test('静的認証TURNクレデンシャル: 有効期限つきユーザー名とHMAC署名を生成する', async () => {
   const { staticAuthCredentials } = require('../js/net.js');
   const creds = await staticAuthCredentials('openrelayprojectsecret', 3600);

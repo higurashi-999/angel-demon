@@ -55,7 +55,11 @@
   };
 
   function peerIdFor(code) { return 'ad-geister-' + String(code).toLowerCase(); }
-  function normalizeCode(raw) { return (raw || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+  function normalizeCode(raw) {
+    // 全角英数→半角（日本語キーボード入力対策。全角のままだと下の除去で消えてしまう）
+    const half = String(raw || '').replace(/[！-～]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0));
+    return half.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  }
 
   class Net {
     constructor(opts = {}) {
@@ -63,6 +67,7 @@
       if (!this.PeerCtor) throw new Error('PeerJS が読み込まれていません');
       this.iceServers = opts.iceServers || ICE_SERVERS;
       this.connectTimeoutMs = opts.connectTimeoutMs != null ? opts.connectTimeoutMs : 20000;
+      this.peerOpenTimeoutMs = opts.peerOpenTimeoutMs != null ? opts.peerOpenTimeoutMs : 12000;
       this.disconnectGraceMs = opts.disconnectGraceMs != null ? opts.disconnectGraceMs : 6000;
       this.maxJoinRetries = opts.maxJoinRetries != null ? opts.maxJoinRetries : 3;
       this.retryDelayMs = opts.retryDelayMs != null ? opts.retryDelayMs : 3000;
@@ -103,10 +108,11 @@
       const opts = await this._buildPeerOpts();
       if (this._destroyed) return;
       const peer = (this.peer = new this.PeerCtor(peerIdFor(code), opts));
-      peer.on('open', () => this._emit('hostReady', code));
+      peer.on('open', () => { this._peerOpened = true; this._emit('hostReady', code); });
       peer.on('connection', (c) => this._accept(c));
       peer.on('disconnected', () => this._reconnectSignaling());
       peer.on('error', (e) => this._onPeerError(e));
+      this._armPeerOpenWatchdog();
     }
 
     _accept(c) {
@@ -129,9 +135,24 @@
       const opts = await this._buildPeerOpts();
       if (this._destroyed) return;
       const peer = (this.peer = new this.PeerCtor(undefined, opts));
-      peer.on('open', () => this._tryConnect());
+      peer.on('open', () => { this._peerOpened = true; this._tryConnect(); });
       peer.on('disconnected', () => this._reconnectSignaling());
       peer.on('error', (e) => this._onPeerError(e));
+      this._armPeerOpenWatchdog();
+    }
+
+    /* 中継サーバー（シグナリング）へ一定時間つながらない場合に打ち切る。
+       これがないと「部屋を探しています…」が無限に表示され続ける */
+    _armPeerOpenWatchdog() {
+      this._peerOpened = false;
+      this._setTimeout(() => {
+        if (this._destroyed || this._peerOpened) return;
+        this._emit('error', {
+          type: 'signaling-timeout',
+          message: '中継サーバーに接続できませんでした。電波の良い場所で、もう一度お試しください',
+        });
+        this.destroy();
+      }, this.peerOpenTimeoutMs);
     }
 
     /* 画面復帰時などに、シグナリングが切れていたら繋ぎ直す */

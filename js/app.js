@@ -24,6 +24,31 @@ function log(msg) {
   ul.prepend(li);
   while (ul.children.length > 30) ul.lastChild.remove();
 }
+/* 接続診断ログ（繋がらない原因の切り分け用に画面下へ残す） */
+function diag(msg) {
+  const el = $('diag-log');
+  if (!el) return;
+  const t = new Date();
+  const ts = `${String(t.getMinutes()).padStart(2, '0')}:${String(t.getSeconds()).padStart(2, '0')}`;
+  el.textContent += `[${ts}] ${msg}\n`;
+}
+/* 確立した経路の種別（直接/中継）を getStats から読み取って診断に残す */
+function probeRoute() {
+  setTimeout(async () => {
+    try {
+      const pc = net && net.conn && net.conn.peerConnection;
+      if (!pc || typeof pc.getStats !== 'function') return;
+      const stats = await pc.getStats();
+      let pair = null;
+      const byId = {};
+      stats.forEach((r) => { byId[r.id] = r; if (r.type === 'candidate-pair' && (r.state === 'succeeded' || r.nominated)) pair = r; });
+      if (!pair) { diag('経路: 確認できませんでした'); return; }
+      const lt = byId[pair.localCandidateId] && byId[pair.localCandidateId].candidateType;
+      const rt = byId[pair.remoteCandidateId] && byId[pair.remoteCandidateId].candidateType;
+      diag(`経路: 自分=${lt} 相手=${rt}（relay=中継経由 / srflx=変換経由 / host=直接）`);
+    } catch { /* 診断は失敗しても本処理に影響させない */ }
+  }, 1500);
+}
 const ICON = { angel: '😇', demon: '😈', fairy: '🧚' };
 const TYPE_JA = { angel: '天使', demon: '悪魔' };
 const REASON_JA = {
@@ -153,12 +178,13 @@ function genRoomCode() {
 
 function wireNet() {
   net.acceptPolicy = () => !(session && session.phase === 'playing');
-  net.on('hostReady', () => waitingStatus('部屋ができました。相手の参加を待っています'));
+  net.on('hostReady', () => { diag('ホスト登録OK（部屋ができました）'); waitingStatus('部屋ができました。相手の参加を待っています'); });
   net.on('status', (text) => {
     if (!$('waiting-room').classList.contains('hidden')) waitingStatus(text);
     else $('lobby-status').textContent = text;
   });
   net.on('error', (err) => {
+    diag(`エラー: ${err.type || ''} ${err.message || ''}`);
     if (err.type === 'unavailable-id') {
       // 復旧しようとした部屋が既に使われていた場合は作り直しへ
       sessionStorage.removeItem(HOST_KEY);
@@ -172,6 +198,8 @@ function wireNet() {
   });
   net.on('open', () => {
     log('相手と接続しました');
+    diag('相手との接続が確立しました');
+    probeRoute();
     if (session && session.phase === 'playing') return; // 対戦中の再接続は状態を保持
     session = newSession((m) => net.send(m));
     showGame();
@@ -180,6 +208,7 @@ function wireNet() {
   });
   net.on('data', (d) => { if (session) session.onMessage(d); });
   net.on('iceState', (s) => {
+    diag(`回線状態: ${s}`);
     if (s === 'failed') {
       log('接続を確立できませんでした（回線同士の相性）');
       if (!$('waiting-room').classList.contains('hidden')) {
@@ -206,6 +235,7 @@ function startHosting(code) {
   waitingStatus('部屋を作成しています…');
   net = new window.ADNet.Net();
   wireNet();
+  diag(`ホスト開始 code=${code}`);
   net.host(code);
 }
 
@@ -218,6 +248,7 @@ function joinRoom(rawCode) {
   $('lobby-status').className = 'status';
   net = new window.ADNet.Net();
   wireNet();
+  diag(`参加開始 code=${code}（入力 ${String(rawCode).length} 文字 → 正規化 ${code.length} 文字）`);
   net.join(code);
 }
 
