@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>天使と悪魔 | スマホで遊べる2人対戦ボードゲーム</title>
+<meta name="description" content="自分の天使と悪魔を操り、相手には妖精にしか見えない駒で戦う2人対戦ボードゲーム。サーバー不要のP2P対戦で運用費0円。">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://0.peerjs.com wss://0.peerjs.com; worker-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'self'">
+<meta name="theme-color" content="#17122b">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header>
+  <h1>😇 天使と悪魔 😈</h1>
+  <p class="tagline">相手の駒はすべて妖精🧚に見える、読み合いの2人対戦</p>
+</header>
+
+<main>
+  <!-- ロビー -->
+  <section id="lobby" class="card">
+    <h2>対戦相手と遊ぶ</h2>
+    <div class="lobby-block">
+      <button id="btn-create" class="primary">部屋を作る（ホスト）</button>
+      <div id="room-info" class="hidden">
+        <p>このコードを相手に伝えてください</p>
+        <div class="room-code" id="room-code">----</div>
+        <button id="btn-copy" class="sub">招待リンクをコピー</button>
+        <p class="note" id="host-wait">相手の参加を待っています…</p>
+      </div>
+    </div>
+    <div class="divider">または</div>
+    <div class="lobby-block">
+      <label for="join-code">相手の部屋コード</label>
+      <div class="join-row">
+        <input id="join-code" type="text" inputmode="latin" autocomplete="off" autocapitalize="characters" placeholder="例: K7QX..." maxlength="24">
+        <button id="btn-join" class="primary">参加する</button>
+      </div>
+    </div>
+    <div class="divider">練習</div>
+    <button id="btn-cpu" class="sub wide">🧚 CPUと練習する（1人用）</button>
+    <p id="lobby-status" class="status"></p>
+  </section>
+
+  <!-- ゲーム -->
+  <section id="game" class="hidden">
+    <div class="card status-card">
+      <div id="turn-status" class="turn-status">準備中</div>
+      <div id="score" class="score"></div>
+      <div id="captured" class="captured"></div>
+    </div>
+
+    <!-- 配置フェーズ -->
+    <div id="placement-panel" class="card hidden">
+      <h2>駒の配置</h2>
+      <p>下2段の8マスに、天使4体・悪魔4体を置いてください。配置は相手には見えません。</p>
+      <div class="tray">
+        <button id="tray-angel" class="tray-btn selected">😇 天使 <span id="count-angel">残り4</span></button>
+        <button id="tray-demon" class="tray-btn">😈 悪魔 <span id="count-demon">残り4</span></button>
+      </div>
+      <div class="row-btns">
+        <button id="btn-random" class="sub">ランダム配置</button>
+        <button id="btn-clear" class="sub">リセット</button>
+        <button id="btn-confirm" class="primary" disabled>配置を確定</button>
+      </div>
+      <p id="placement-status" class="status"></p>
+    </div>
+
+    <div id="board-wrap">
+      <div id="board" role="grid" aria-label="ゲーム盤"></div>
+    </div>
+
+    <div id="action-bar" class="row-btns hidden">
+      <button id="btn-exit" class="primary hidden">✨ この天使を脱出させる</button>
+      <button id="btn-resign" class="danger sub">投了する</button>
+    </div>
+
+    <div class="card">
+      <h2>対戦ログ</h2>
+      <ul id="log" class="log"></ul>
+    </div>
+  </section>
+
+  <!-- 結果 -->
+  <div id="result-modal" class="modal hidden">
+    <div class="modal-inner card">
+      <div id="result-title" class="result-title"></div>
+      <p id="result-detail"></p>
+      <p id="verify-result" class="verify"></p>
+      <div class="row-btns">
+        <button id="btn-rematch" class="primary">もう一局</button>
+        <button id="btn-leave" class="sub">ロビーに戻る</button>
+      </div>
+      <p id="rematch-status" class="status"></p>
+    </div>
+  </div>
+
+  <section class="card rules">
+    <h2>ルール（ガイスターと同一）</h2>
+    <ul>
+      <li>各自、天使（良いおばけ）4体・悪魔（悪いおばけ）4体の計8体を自陣に配置します。自分の駒の種類は自分だけが見えて、相手からは全て妖精🧚に見えます。</li>
+      <li>手番に自分の駒1体を上下左右に1マス動かします。相手の駒のあるマスに動くと、その駒を捕獲し、種類が公開されます。</li>
+      <li>勝ち方は3つ：①相手の天使を4体すべて捕獲 ②自分の悪魔を4体すべて相手に捕獲させる ③自分の天使1体を、相手側の角の脱出マスから盤の外へ脱出させる。</li>
+      <li>逆に、相手の悪魔を4体捕獲してしまった側が負けです。悪魔は脱出できません。</li>
+    </ul>
+    <h2>安全とプライバシー</h2>
+    <ul>
+      <li>対戦データは端末同士の暗号化通信（WebRTC）で直接やり取りされ、サーバーに保存されません。アカウント登録・個人情報の入力は不要です。</li>
+      <li>配置はハッシュで事前に固定され、捕獲や脱出のたびに検証されるため、後から種類をごまかすことはできません。対戦終了時にも全駒の検証結果が表示されます。</li>
+      <li>部屋コードを知っている人だけが参加できます。コードは対戦ごとに使い捨てにしてください。</li>
+    </ul>
+  </section>
+</main>
+
+<footer>
+  <p>天使と悪魔 — Alex Randolph 作『Geister（ガイスター）』（Drei Magier Spiele）に着想を得た非公式ファンメイド作品です。原作の権利者とは無関係であり、公式製品ではありません。ルール本文・デザイン・プログラムはすべて本作品のオリジナルです。</p>
+</footer>
+
+<script src="vendor/peerjs.min.js"></script>
+<script src="js/game.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
