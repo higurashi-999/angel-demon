@@ -243,3 +243,11 @@ footer { text-align: center; color: var(--muted); font-size: .8rem; padding: 10p
   0% { transform: scale(.3); }
   100% { transform: scale(1); }
 }
+.title-logo {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+}
+header h1 { line-height: 0; }
