@@ -209,3 +209,15 @@ test('対戦画面ではキャラクター画像を隠す（body.in-game が付�
   assert.strictEqual(document.body.classList.contains('in-game'), true, '対戦画面では in-game が付く');
   dom.window.close();
 });
+
+test('CPUの強さ: セグメントで選ぶと保存され、選択表示が移る', () => {
+  const dom = makeWindow();
+  const { document } = dom.window;
+  const seg = document.getElementById('cpu-level-seg');
+  assert.ok(seg, '強さセグメントがある');
+  const strong = seg.querySelector('button[data-lv="3"]');
+  strong.click();
+  assert.strictEqual(dom.window.localStorage.getItem('adg-cpu-level'), '3');
+  assert.ok(strong.classList.contains('selected'));
+  dom.window.close();
+});

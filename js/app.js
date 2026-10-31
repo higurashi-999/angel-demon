@@ -77,6 +77,13 @@ let setupGrid = new Map(); // "x,y" -> 'angel'|'demon'
 let trayType = 'angel';
 const HOST_KEY = 'adg-host-code';
 
+/* ---------- CPUの強さ ---------- */
+function cpuLevel() {
+  let lv = 2;
+  try { lv = parseInt(localStorage.getItem('adg-cpu-level') || '2', 10); } catch { /* 既定値 */ }
+  return [1, 2, 3].includes(lv) ? lv : 2;
+}
+
 /* ---------- 画面遷移 ---------- */
 function showLobby() {
   document.body.classList.remove('in-game');
@@ -160,7 +167,7 @@ function makeSessionEvents() {
       updatePlacementStatus();
       if (mode === 'cpu' && session && session.phase === 'playing' &&
           session.state && !session.state.winner && session.state.turn === 'B') {
-        setTimeout(() => { if (cpuSession) window.ADCpu.takeTurn(cpuSession); }, 800);
+        setTimeout(() => { if (cpuSession) window.ADCpu.takeTurn(cpuSession, Math.random, cpuLevel()); }, 800);
       }
     },
   };
@@ -329,7 +336,7 @@ $('btn-cpu').addEventListener('click', () => {
       if (!cpuSession) return;
       cpuSession.onMessage(m);
       if (m.t === 'setup' && !cpuSession.mySetupSent) {
-        cpuSession.confirmSetup(window.ADCpu.randomTypes());
+        cpuSession.confirmSetup(window.ADCpu.randomTypes(Math.random, cpuLevel()));
       }
     }, 250);
   });
@@ -568,6 +575,16 @@ $('btn-exit').addEventListener('click', () => {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
   applyStatusVisibility();
+  const seg = $('cpu-level-seg');
+  if (seg) {
+    const applySeg = () => seg.querySelectorAll('button').forEach((b) =>
+      b.classList.toggle('selected', parseInt(b.dataset.lv, 10) === cpuLevel()));
+    seg.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
+      try { localStorage.setItem('adg-cpu-level', b.dataset.lv); } catch { /* 保存できなくても続行 */ }
+      applySeg();
+    }));
+    applySeg();
+  }
   document.querySelectorAll('img[data-icon]').forEach((el) => {
     const t = el.getAttribute('data-icon');
     if (window.ADIcons && window.ADIcons.URIS[t]) { el.src = window.ADIcons.URIS[t]; el.alt = window.ADIcons.LABELS[t]; }
