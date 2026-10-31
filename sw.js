@@ -1,11 +1,15 @@
 'use strict';
 /* 静的ファイルのキャッシュのみ。対戦データは一切キャッシュ・保存しない。 */
-const CACHE = 'angel-demon-v1';
+const CACHE = 'angel-demon-v2';
 const ASSETS = [
   './',
   './index.html',
   './css/style.css',
   './js/game.js',
+  './js/net.js',
+  './js/session.js',
+  './js/cpu.js',
+  './js/fx.js',
   './js/app.js',
   './vendor/peerjs.min.js',
   './manifest.webmanifest',

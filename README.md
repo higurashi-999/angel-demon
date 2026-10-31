@@ -44,7 +44,11 @@ node --test tests/game.test.js
 |---|---|
 | `index.html` | 画面（ロビー・盤・ルール説明） |
 | `js/game.js` | ルールの純粋ロジック（Node テスト対象） |
-| `js/app.js` | UI・対戦プロトコル・CPU |
+| `js/net.js` | 接続層（PeerJSラッパー。再接続・切断の猶予判定・参加リトライ） |
+| `js/session.js` | 対戦プロトコルと進行の状態機械（コミットメント検証を含む） |
+| `js/cpu.js` | CPU対戦の思考ルーチン |
+| `js/fx.js` | 捕獲時の演出（天使/悪魔の表示） |
+| `js/app.js` | UI（描画・入力・画面遷移） |
 | `vendor/peerjs.min.js` | PeerJS 1.5.5（同梱、ハッシュは `vendor/README.md`） |
 | `docs/ARCHITECTURE.md` | 設計・コスト・不正対策の詳細 |
 | `SECURITY.md` | セキュリティ方針 |
@@ -52,9 +56,16 @@ node --test tests/game.test.js
 ## 技術とコスト
 
 - ホスティング：GitHub Pages（公開リポジトリ、無料）
-- 対戦通信：WebRTC P2P（DTLS暗号化）。接続仲介のみ PeerServer Cloud の無料枠＋ Google STUN を使用
+- 対戦通信：WebRTC P2P（DTLS暗号化）。接続仲介のみ PeerServer Cloud の無料枠＋ Google STUN を使用。直接接続できない回線環境では無料の公開 TURN が暗号化データを中継
+- ホストは待機ルームに入室したまま相手を待ち、タブを再読み込みしても同じ部屋で待機が復旧する
 - 不正対策：配置の SHA-256 コミットメント方式（詳細は `docs/ARCHITECTURE.md`）
 
 **運用費：¥0/月**（サーバーを持たないため課金経路がありません）
 
 > 本作品はガイスターをモチーフにした非公式ファンメイド作品です。
+
+## 開発（テストとデプロイ）
+
+- `npm test` — ルール／プロトコル／接続／演出／UI の全テスト（Node 標準テストランナー＋jsdom）
+- `bash scripts/check.sh` — デプロイ前チェック（構文・全テスト・プッシュ制約）。これが通らないものはデプロイしない
+- `bash scripts/deploy.sh "コミットメッセージ"` — チェック合格後に限り GitHub へ一括プッシュし、公開を確認する

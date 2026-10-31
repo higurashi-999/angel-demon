@@ -120,3 +120,51 @@ test('コミットメント: 同じ入力からは同じハッシュ、種類を
   assert.notStrictEqual(h('A0', 'angel', nonce), h('A0', 'demon', nonce));
   assert.match(h('A0', 'angel', nonce), /^[0-9a-f]{64}$/);
 });
+
+test('脱出の検証: 脱出マスの上でのみ脱出でき、盤外や通常マスではできない', () => {
+  const s = freshGame('A');
+  // A0 は (1,4) で脱出マスではない
+  assert.strictEqual(G.validateMove(s, 'A', { kind: 'exit', pieceId: 'A0' }).ok, false);
+  // 駒を脱出マス (0,0) まで運んだ状態を作る（直接配置換えではなく applyMove で進める代わりに座標を差し替える）
+  const p = G.getPiece(s, 'A0');
+  p.x = 0; p.y = 0;
+  assert.strictEqual(G.validateMove(s, 'A', { kind: 'exit', pieceId: 'A0' }).ok, true);
+  const res = G.applyMove(s, { kind: 'exit', pieceId: 'A0' });
+  assert.strictEqual(res.piece.alive, false);
+  G.recordExit(s, 'A');
+  assert.strictEqual(s.winner, 'A');
+  assert.strictEqual(s.winReason, 'exit');
+});
+
+test('悪魔を4体捕獲した側が負ける', () => {
+  const s = freshGame('A');
+  for (let i = 0; i < 4; i++) G.recordCapture(s, 'A', 'demon');
+  assert.strictEqual(s.winner, 'B');
+  assert.strictEqual(s.winReason, 'capture-demons');
+});
+
+test('天使を4体捕獲した側が勝つ', () => {
+  const s = freshGame('B');
+  for (let i = 0; i < 4; i++) G.recordCapture(s, 'B', 'angel');
+  assert.strictEqual(s.winner, 'B');
+  assert.strictEqual(s.winReason, 'capture-angels');
+});
+
+test('配置検証: 重なりと陣地外を弾く', () => {
+  const ok = placementsFor('A');
+  assert.strictEqual(G.validatePlacements('A', ok), null);
+  const dup = { ...ok, A1: { ...ok.A0 } };
+  assert.ok(G.validatePlacements('A', dup) !== null);
+  const out = { ...ok, A0: { x: 0, y: 0 } };
+  assert.ok(G.validatePlacements('A', out) !== null);
+});
+
+test('捕獲の適用: 取った駒は無効化され、移動側がそのマスに入る', () => {
+  const s = freshGame('A');
+  const a0 = G.getPiece(s, 'A0'); a0.x = 1; a0.y = 2;
+  const b4 = G.getPiece(s, 'B4'); b4.x = 1; b4.y = 1;
+  const { captured } = G.applyMove(s, { kind: 'move', pieceId: 'A0', to: { x: 1, y: 1 } });
+  assert.strictEqual(captured.id, 'B4');
+  assert.strictEqual(b4.alive, false);
+  assert.strictEqual(G.pieceAt(s, 1, 1).id, 'A0');
+});

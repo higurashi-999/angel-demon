@@ -23,12 +23,6 @@
     <h2>対戦相手と遊ぶ</h2>
     <div class="lobby-block">
       <button id="btn-create" class="primary">部屋を作る（ホスト）</button>
-      <div id="room-info" class="hidden">
-        <p>このコードを相手に伝えてください</p>
-        <div class="room-code" id="room-code">----</div>
-        <button id="btn-copy" class="sub">招待リンクをコピー</button>
-        <p class="note" id="host-wait">相手の参加を待っています…</p>
-      </div>
     </div>
     <div class="divider">または</div>
     <div class="lobby-block">
@@ -42,6 +36,20 @@
     <button id="btn-cpu" class="sub wide">🧚 CPUと練習する（1人用）</button>
     <p id="lobby-status" class="status"></p>
   </section>
+
+  <!-- ホスト待機ルーム -->
+  <section id="waiting-room" class="card hidden">
+    <h2>対戦ルーム（あなたがホスト）</h2>
+    <p>あなたはこの部屋に入室済みです。このコードを相手に伝えてください</p>
+    <div class="room-code" id="wait-code">----</div>
+    <button id="btn-copy2" class="primary wide">招待リンクをコピー</button>
+    <p class="status" id="waiting-status">部屋を作成しています…</p>
+    <p class="note">相手が参加すると自動で対戦画面に進みます。リンクを送るために他のアプリへ切り替えても、このタブに戻れば待機が自動で復旧します。</p>
+    <button id="btn-cancel-room" class="sub">部屋を閉じる</button>
+  </section>
+
+  <!-- 捕獲時の演出 -->
+  <div id="capture-fx" class="capture-fx hidden" aria-live="polite"></div>
 
   <!-- ゲーム -->
   <section id="game" class="hidden">
@@ -106,7 +114,7 @@
     </ul>
     <h2>安全とプライバシー</h2>
     <ul>
-      <li>対戦データは端末同士の暗号化通信（WebRTC）で直接やり取りされ、サーバーに保存されません。アカウント登録・個人情報の入力は不要です。</li>
+      <li>対戦データは端末同士の暗号化通信（WebRTC）で直接やり取りされ、サーバーに保存されません。直接つながらない回線環境では、無料の中継サーバーが暗号化されたデータをそのまま中継します（中身を読むことはできず、保存もされません）。アカウント登録・個人情報の入力は不要です。</li>
       <li>配置はハッシュで事前に固定され、捕獲や脱出のたびに検証されるため、後から種類をごまかすことはできません。対戦終了時にも全駒の検証結果が表示されます。</li>
       <li>部屋コードを知っている人だけが参加できます。コードは対戦ごとに使い捨てにしてください。</li>
     </ul>
@@ -119,6 +127,10 @@
 
 <script src="vendor/peerjs.min.js"></script>
 <script src="js/game.js"></script>
+<script src="js/net.js"></script>
+<script src="js/session.js"></script>
+<script src="js/cpu.js"></script>
+<script src="js/fx.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
