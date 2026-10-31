@@ -1,0 +1,122 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert');
+const crypto = require('node:crypto');
+const G = require('../js/game.js');
+
+function placementsFor(player, typesInCellOrder) {
+  // 配置UIと同じ順序（placementCells の順）で A0..A7 を割り当てる
+  const cells = G.placementCells(player);
+  const placements = {};
+  cells.forEach((c, i) => { placements[G.pieceId(player, i)] = c; });
+  return placements;
+}
+function freshGame(firstPlayer = 'A') {
+  return G.createGame(
+    { ...placementsFor('A'), ...placementsFor('B') },
+    firstPlayer
+  );
+}
+
+test('配置マスは各陣地8マス・中央4列', () => {
+  assert.strictEqual(G.placementCells('A').length, 8);
+  assert.strictEqual(G.placementCells('B').length, 8);
+  assert.ok(G.isPlacementCell('A', 1, 4) && G.isPlacementCell('A', 4, 5));
+  assert.ok(!G.isPlacementCell('A', 0, 4) && !G.isPlacementCell('A', 1, 3));
+  assert.ok(G.isPlacementCell('B', 4, 0) && !G.isPlacementCell('B', 4, 5));
+});
+
+test('脱出マスは相手陣地の左右の角', () => {
+  assert.deepStrictEqual(G.targetExits('A'), [{ x: 0, y: 0 }, { x: 5, y: 0 }]);
+  assert.deepStrictEqual(G.targetExits('B'), [{ x: 0, y: 5 }, { x: 5, y: 5 }]);
+});
+
+test('種類の内訳バリデーション（天使4・悪魔4）', () => {
+  assert.strictEqual(G.validateTypes(['angel', 'angel', 'angel', 'angel', 'demon', 'demon', 'demon', 'demon']), null);
+  assert.ok(G.validateTypes(['angel', 'angel', 'angel', 'demon', 'demon', 'demon', 'demon', 'demon']));
+  assert.ok(G.validateTypes(['angel']));
+});
+
+test('配置バリデーション（重複・陣地外を検出）', () => {
+  const ok = placementsFor('A');
+  assert.strictEqual(G.validatePlacements('A', ok), null);
+  const dup = placementsFor('A');
+  dup.A1 = { ...dup.A0 };
+  assert.ok(G.validatePlacements('A', dup));
+  const out = placementsFor('A');
+  out.A0 = { x: 0, y: 0 };
+  assert.ok(G.validatePlacements('A', out));
+});
+
+test('移動は上下左右1マスのみ・自駒のマスには行けない', () => {
+  const s = freshGame();
+  // A0 は (1,4)。右(2,4=A1)と下(1,5=A4)は自駒で不可。左(0,4)と上(1,3)は空き
+  const dests = G.legalDestinations(s, 'A0').map((d) => `${d.x},${d.y}`);
+  assert.deepStrictEqual(dests, ['0,4', '1,3']);
+  // 斜め移動は不正
+  const bad = G.validateMove(s, 'A', { kind: 'move', pieceId: 'A0', to: { x: 2, y: 3 } });
+  assert.strictEqual(bad.ok, false);
+  // 相手の手番に動かすのは不正
+  const wrongTurn = G.validateMove(s, 'B', { kind: 'move', pieceId: 'B0', to: { x: 1, y: 2 } });
+  assert.strictEqual(wrongTurn.ok, false);
+  // 相手の駒を動かすのは不正
+  const notMine = G.validateMove(s, 'A', { kind: 'move', pieceId: 'B0', to: { x: 1, y: 2 } });
+  assert.strictEqual(notMine.ok, false);
+});
+
+test('捕獲で相手の駒が除去される', () => {
+  const s = freshGame();
+  // A0(1,4) を前進させ、B陣2段目の B4(1,1) を捕獲する想定の簡易シナリオ
+  const a0 = G.getPiece(s, 'A0');
+  a0.x = 1; a0.y = 2; // テスト用に直接配置（公開状態の操作）
+  const res = G.validateMove(s, 'A', { kind: 'move', pieceId: 'A0', to: { x: 1, y: 1 } });
+  assert.strictEqual(res.ok, true);
+  assert.strictEqual(res.captured.id, 'B4');
+  const { captured } = G.applyMove(s, { kind: 'move', pieceId: 'A0', to: { x: 1, y: 1 } });
+  assert.strictEqual(captured.alive, false);
+});
+
+test('勝利条件: 相手の天使4体捕獲で勝利、悪魔4体捕獲で敗北', () => {
+  const s1 = freshGame();
+  for (let i = 0; i < 4; i++) G.recordCapture(s1, 'A', 'angel');
+  assert.strictEqual(s1.winner, 'A');
+  assert.strictEqual(s1.winReason, 'capture-angels');
+
+  const s2 = freshGame();
+  for (let i = 0; i < 4; i++) G.recordCapture(s2, 'A', 'demon');
+  assert.strictEqual(s2.winner, 'B');
+  assert.strictEqual(s2.winReason, 'capture-demons');
+});
+
+test('脱出は脱出マス上でのみ可能で、勝利になる', () => {
+  const s = freshGame();
+  const bad = G.validateMove(s, 'A', { kind: 'exit', pieceId: 'A0' });
+  assert.strictEqual(bad.ok, false);
+  const a0 = G.getPiece(s, 'A0');
+  a0.x = 0; a0.y = 0; // Aの脱出マスへ
+  const ok = G.validateMove(s, 'A', { kind: 'exit', pieceId: 'A0' });
+  assert.strictEqual(ok.ok, true);
+  G.applyMove(s, { kind: 'exit', pieceId: 'A0' });
+  G.recordExit(s, 'A');
+  assert.strictEqual(s.winner, 'A');
+  assert.strictEqual(s.winReason, 'exit');
+});
+
+test('手番は交互に交代し、勝敗確定後は交代しない', () => {
+  const s = freshGame();
+  assert.strictEqual(s.turn, 'A');
+  G.endTurn(s);
+  assert.strictEqual(s.turn, 'B');
+  s.winner = 'A';
+  G.endTurn(s);
+  assert.strictEqual(s.turn, 'B');
+});
+
+test('コミットメント: 同じ入力からは同じハッシュ、種類を変えると一致しない', () => {
+  const h = (id, type, nonce) =>
+    crypto.createHash('sha256').update(G.commitmentInput(id, type, nonce)).digest('hex');
+  const nonce = '0123456789abcdef0123456789abcdef';
+  assert.strictEqual(h('A0', 'angel', nonce), h('A0', 'angel', nonce));
+  assert.notStrictEqual(h('A0', 'angel', nonce), h('A0', 'demon', nonce));
+  assert.match(h('A0', 'angel', nonce), /^[0-9a-f]{64}$/);
+});
